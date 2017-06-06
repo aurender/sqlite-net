@@ -81,6 +81,51 @@ namespace SQLite.Net
         }
 
         [PublicAPI]
+        [CanBeNull]
+        public IEnumerable<IList<Object>> ExecuteDefferedQuery(Type[] types)
+        {
+            _conn.TraceListener.WriteLine("Executing Query: {0}", this);
+
+            var stmt = Prepare();
+
+            try
+            {
+                var _colsCount = _sqlitePlatform.SQLiteApi.ColumnCount(stmt);
+
+                if (types.Count() != _colsCount) {
+
+                    System.Diagnostics.Debug.Assert(false, "Query is not correct");
+                }
+
+                var cols = new List<ColType>(_colsCount);
+
+                for (var i = 0; i<_colsCount; i++)
+                {
+                    var colType = _sqlitePlatform.SQLiteApi.ColumnType(stmt, 0);
+                    cols.Add(colType);
+                }
+
+                while (_sqlitePlatform.SQLiteApi.Step(stmt) == Result.Row)
+                {
+                    var vals = new List<Object>(types.Count());
+
+                    for (var i = 0; i<_colsCount; i++)
+                    {
+                        var colType = _sqlitePlatform.SQLiteApi.ColumnType(stmt, i);
+                        var val = ReadCol(stmt, i, colType, types[i]);
+                        vals.Add(val);
+                    }
+
+                    yield return vals;
+                }
+            }
+            finally
+            {
+                _sqlitePlatform.SQLiteApi.Finalize(stmt);
+            }
+        }
+
+        [PublicAPI]
         public IEnumerable<T> ExecuteDeferredQuery<T>()
         {
             return ExecuteDeferredQuery<T>(_conn.GetMapping(typeof (T)));
