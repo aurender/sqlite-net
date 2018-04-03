@@ -2616,9 +2616,14 @@ namespace SQLite
 			throw SQLiteException.New (r, r.ToString ());
 		}
 
-		public IEnumerable<T> ExecuteDeferredQuery<T> ()
+		public IEnumerable<T> ExecuteDeferredQuery<T> (bool isWrapperClass = true)
 		{
-			return ExecuteDeferredQuery<T> (_conn.GetMapping (typeof (T)));
+			if (isWrapperClass) {
+				return ExecuteDeferredQuery<T> (_conn.GetMapping (typeof (T)));
+			}
+			else {
+				return ExecuteDeferredQuery (typeof (T)).OfType<T> ();
+			}
 		}
 
 		public List<T> ExecuteQuery<T> ()
@@ -2674,6 +2679,29 @@ namespace SQLite
 					}
 					OnInstanceCreated (obj);
 					yield return (T)obj;
+				}
+			}
+			finally {
+				SQLite3.Finalize (stmt);
+			}
+		}
+
+		public IEnumerable<object> ExecuteDeferredQuery (Type type) {
+			if (_conn.Trace) {
+				_conn.Tracer?.Invoke ("Executing Query: " + this);
+			}
+
+			var stmt = Prepare ();
+			try {
+				var _colsCount = SQLite3.ColumnCount (stmt);
+
+				while (SQLite3.Step (stmt) == SQLite3.Result.Row) {
+					for (var i = 0; i < _colsCount; i++) {
+						var colType = SQLite3.ColumnType (stmt, i);
+
+						var val = ReadCol (stmt, i, colType, type);
+						yield return val;
+					}
 				}
 			}
 			finally {
