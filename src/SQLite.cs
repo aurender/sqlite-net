@@ -2681,6 +2681,43 @@ namespace SQLite
 			}
 		}
 
+		public IEnumerable<IList<object>> ExecuteDeferredQuery (Type[] types) {
+			if (_conn.Trace) {
+				_conn.Tracer?.Invoke ("Executing Query: " + this);
+			}
+
+			var stmt = Prepare ();
+			try {
+				var _colsCount = SQLite3.ColumnCount (stmt);
+
+				if (types.Count () != _colsCount) {
+					Debug.Assert (false, "Query is not correct");
+				}
+
+				var cols = new List<SQLite3.ColType> (_colsCount);
+
+				for (var i = 0; i < _colsCount; i++) {
+					var colType = SQLite3.ColumnType (stmt, 0);
+					cols.Add (colType);
+				}
+
+				while (SQLite3.Step (stmt) == SQLite3.Result.Row) {
+					var vals = new List<object> (types.Count ());
+
+					for (var i = 0; i < _colsCount; i++) {
+						var colType = SQLite3.ColumnType (stmt, i);
+						var val = ReadCol (stmt, i, colType, types[i]);
+						vals.Add (val);
+					}
+
+					yield return vals;
+				}
+			}
+			finally {
+				SQLite3.Finalize (stmt);
+			}
+		}
+
 		public T ExecuteScalar<T> ()
 		{
 			if (_conn.Trace) {
