@@ -2907,7 +2907,7 @@ namespace SQLite
 			}
 		}
 
-		public IEnumerable<IList<object>> ExecuteDeferredQuery (Type[] types) {
+		public IEnumerable<IReadOnlyList<object>> ExecuteDeferredQuery (Type[] types) {
 			if (_conn.Trace) {
 				_conn.Tracer?.Invoke ("Executing Query: " + this);
 			}
